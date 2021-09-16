@@ -1,10 +1,10 @@
 #![allow(dead_code, unused_imports)]
 
 use std::collections::HashMap;
-use crate::encoder::*;
-use crate::decoder::*;
 use std::iter::FromIterator;
 
+use crate::decoder::*;
+use crate::encoder::*;
 
 pub mod common;
 pub mod encoder;
@@ -53,7 +53,7 @@ fn run() {
       (0, 2934),
       (1, 39848953),
       (3, 340985),
-    ])
+    ]),
   };
 
   let start = std::time::SystemTime::now();

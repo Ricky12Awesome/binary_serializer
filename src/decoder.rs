@@ -131,6 +131,25 @@ impl <K: Deserializer + Eq + Hash, V: Deserializer> Deserializer for HashMap<K, 
   }
 }
 
+macro_rules! impl_deserializer_tuple {
+  ($($name:ident),+) => {
+    impl <$($name: Deserializer),+> Deserializer for ($($name),+) {
+      fn decode(decoder: &mut impl Decoder) -> Self {
+        ($(decoder.decode_value::<$name>()),+)
+      }
+    }
+  };
+}
+
+impl_deserializer_tuple!(A, B);
+impl_deserializer_tuple!(A, B, C);
+impl_deserializer_tuple!(A, B, C, D);
+impl_deserializer_tuple!(A, B, C, D, E);
+impl_deserializer_tuple!(A, B, C, D, E, F);
+impl_deserializer_tuple!(A, B, C, D, E, F, G);
+impl_deserializer_tuple!(A, B, C, D, E, F, G, J);
+impl_deserializer_tuple!(A, B, C, D, E, F, G, J, K);
+
 macro_rules! impl_deserializer {
   ($(($type:ty, $decode:ident)),+ $(,)?) => {
     $(impl Deserializer for $type {

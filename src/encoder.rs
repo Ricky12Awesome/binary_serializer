@@ -1,7 +1,8 @@
-use std::io::Write;
 use std::collections::HashMap;
-use crate::common::MapEntry;
 use std::hash::Hash;
+use std::io::Write;
+
+use crate::common::MapEntry;
 
 pub trait Encoder {
   fn encode_u8(&mut self, value: u8);
