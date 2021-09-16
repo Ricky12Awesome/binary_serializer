@@ -15,7 +15,7 @@ struct Data {
   name: String,
   age: u32,
   some_random_data: Vec<HashMap<String, u32>>,
-  non_string_map: HashMap<u32, u32>,
+  non_string_map: HashMap<u32, (u32, u32)>,
 }
 
 impl encoder::Serializer for Data {
@@ -33,7 +33,7 @@ impl decoder::Deserializer for Data {
       name: decoder.decode_string(),
       age: decoder.decode_u32(),
       some_random_data: decoder.decode_slice::<HashMap<String, u32>>(),
-      non_string_map: decoder.decode_map::<u32, u32>(),
+      non_string_map: decoder.decode_map::<u32, (u32, u32)>(),
     }
   }
 }
@@ -50,9 +50,10 @@ fn run() {
       HashMap::from_iter([("".to_string(), 0)]),
     ],
     non_string_map: HashMap::from_iter([
-      (0, 2934),
-      (1, 39848953),
-      (3, 340985),
+      (0, (2934, 32465346)),
+      (1, (30945, 39846)),
+      (2, (32495, 3453456)),
+      (3, (945745, 32095)),
     ]),
   };
 
