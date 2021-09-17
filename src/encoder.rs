@@ -29,7 +29,7 @@ pub trait Encoder {
   fn encode_string(&mut self, value: impl ToString);
   fn encode_slice<T: Serializer>(&mut self, value: &[T]);
   fn encode_map<K: Serializer + Eq + Hash, V: Serializer>(&mut self, value: &HashMap<K, V>);
-  fn encode_value<T: Serializer>(&mut self, value: &impl Serializer);
+  fn encode_value<T: Serializer>(&mut self, value: &T);
 }
 
 pub struct ByteTracker {
@@ -130,7 +130,7 @@ impl Encoder for ByteEncoder {
     self.encode_slice(&values);
   }
 
-  fn encode_value<T: Serializer>(&mut self, value: &impl Serializer) {
+  fn encode_value<T: Serializer>(&mut self, value: &T) {
     value.encode(self);
   }
 }
