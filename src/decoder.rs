@@ -114,7 +114,7 @@ impl ByteDecoder {
     &self.bytes
   }
 
-  fn next_bytes_n<const N: usize>(&mut self, type_name: &str) -> DecoderResult<[u8; N]> {
+  fn read_bytes<const N: usize>(&mut self, type_name: &str) -> DecoderResult<[u8; N]> {
     let bytes = &self.bytes
       .get(self.index..self.index + N)
       .ok_or(DecoderError::not_enough_bytes(type_name, self.index))?;
@@ -130,20 +130,20 @@ impl ByteDecoder {
 }
 
 impl Decoder for ByteDecoder {
-  fn decode_u8(&mut self) -> DecoderResult<u8> { Ok(u8::from_be_bytes(self.next_bytes_n::<1>("u8")?)) }
-  fn decode_u16(&mut self) -> DecoderResult<u16> { Ok(u16::from_be_bytes(self.next_bytes_n::<2>("u16")?)) }
-  fn decode_u32(&mut self) -> DecoderResult<u32> { Ok(u32::from_be_bytes(self.next_bytes_n::<4>("u32")?)) }
-  fn decode_u64(&mut self) -> DecoderResult<u64> { Ok(u64::from_be_bytes(self.next_bytes_n::<8>("u64")?)) }
-  fn decode_u128(&mut self) -> DecoderResult<u128> { Ok(u128::from_be_bytes(self.next_bytes_n::<16>("u128")?)) }
+  fn decode_u8(&mut self) -> DecoderResult<u8> { Ok(u8::from_be_bytes(self.read_bytes::<1>("u8")?)) }
+  fn decode_u16(&mut self) -> DecoderResult<u16> { Ok(u16::from_be_bytes(self.read_bytes::<2>("u16")?)) }
+  fn decode_u32(&mut self) -> DecoderResult<u32> { Ok(u32::from_be_bytes(self.read_bytes::<4>("u32")?)) }
+  fn decode_u64(&mut self) -> DecoderResult<u64> { Ok(u64::from_be_bytes(self.read_bytes::<8>("u64")?)) }
+  fn decode_u128(&mut self) -> DecoderResult<u128> { Ok(u128::from_be_bytes(self.read_bytes::<16>("u128")?)) }
 
-  fn decode_i8(&mut self) -> DecoderResult<i8> { Ok(i8::from_be_bytes(self.next_bytes_n::<1>("i8")?)) }
-  fn decode_i16(&mut self) -> DecoderResult<i16> { Ok(i16::from_be_bytes(self.next_bytes_n::<2>("i16")?)) }
-  fn decode_i32(&mut self) -> DecoderResult<i32> { Ok(i32::from_be_bytes(self.next_bytes_n::<4>("i32")?)) }
-  fn decode_i64(&mut self) -> DecoderResult<i64> { Ok(i64::from_be_bytes(self.next_bytes_n::<8>("i64")?)) }
-  fn decode_i128(&mut self) -> DecoderResult<i128> { Ok(i128::from_be_bytes(self.next_bytes_n::<16>("i128")?)) }
+  fn decode_i8(&mut self) -> DecoderResult<i8> { Ok(i8::from_be_bytes(self.read_bytes::<1>("i8")?)) }
+  fn decode_i16(&mut self) -> DecoderResult<i16> { Ok(i16::from_be_bytes(self.read_bytes::<2>("i16")?)) }
+  fn decode_i32(&mut self) -> DecoderResult<i32> { Ok(i32::from_be_bytes(self.read_bytes::<4>("i32")?)) }
+  fn decode_i64(&mut self) -> DecoderResult<i64> { Ok(i64::from_be_bytes(self.read_bytes::<8>("i64")?)) }
+  fn decode_i128(&mut self) -> DecoderResult<i128> { Ok(i128::from_be_bytes(self.read_bytes::<16>("i128")?)) }
 
-  fn decode_f32(&mut self) -> DecoderResult<f32> { Ok(f32::from_be_bytes(self.next_bytes_n::<4>("f32")?)) }
-  fn decode_f64(&mut self) -> DecoderResult<f64> { Ok(f64::from_be_bytes(self.next_bytes_n::<8>("f64")?)) }
+  fn decode_f32(&mut self) -> DecoderResult<f32> { Ok(f32::from_be_bytes(self.read_bytes::<4>("f32")?)) }
+  fn decode_f64(&mut self) -> DecoderResult<f64> { Ok(f64::from_be_bytes(self.read_bytes::<8>("f64")?)) }
 }
 
 pub trait FromBytes: Deserializer + Sized {
