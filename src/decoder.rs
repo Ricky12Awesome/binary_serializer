@@ -1,9 +1,10 @@
 use std::collections::HashMap;
-use crate::common::MapEntry;
-use std::hash::Hash;
-use std::fmt::{Display, Formatter, Write, Debug};
-use std::iter::FromIterator;
 use std::error::Error;
+use std::fmt::{Debug, Display, Formatter, Write};
+use std::hash::Hash;
+use std::iter::FromIterator;
+
+use crate::common::MapEntry;
 
 pub type DecoderResult<T> = std::result::Result<T, DecoderError>;
 
@@ -60,7 +61,23 @@ pub trait Decoder: Sized {
 
   fn decode_bool(&mut self) -> DecoderResult<bool> { self.decode_u8().map(|it| it != 0) }
 
-  fn decode_slice<T: Deserializer>(&mut self) -> DecoderResult<Vec<T>>;
+  fn decode_slice<T: Deserializer>(&mut self) -> DecoderResult<Vec<T>> {
+    let total_bytes = self.decode_usize()?;
+    let bytes_per_element = self.decode_usize()?;
+
+    if total_bytes == 0 || bytes_per_element == 0 {
+      return Ok(Vec::new());
+    }
+
+    let len = total_bytes / bytes_per_element;
+    let mut vec = Vec::with_capacity(len);
+
+    for _ in 0..len {
+      vec.push(T::decode(self)?);
+    }
+
+    Ok(vec)
+  }
 
   fn decode_string(&mut self) -> DecoderResult<String> {
     let data = self.decode_slice::<u16>()?;
@@ -127,24 +144,6 @@ impl Decoder for ByteDecoder {
 
   fn decode_f32(&mut self) -> DecoderResult<f32> { Ok(f32::from_be_bytes(self.next_bytes_n::<4>("f32")?)) }
   fn decode_f64(&mut self) -> DecoderResult<f64> { Ok(f64::from_be_bytes(self.next_bytes_n::<8>("f64")?)) }
-
-  fn decode_slice<T: Deserializer>(&mut self) -> DecoderResult<Vec<T>> {
-    let total_bytes = self.decode_usize()?;
-    let bytes_per_element = self.decode_usize()?;
-
-    if total_bytes == 0 || bytes_per_element == 0 {
-      return Ok(Vec::new());
-    }
-
-    let len = total_bytes / bytes_per_element;
-    let mut vec = Vec::with_capacity(len);
-
-    for _ in 0..len {
-      vec.push(T::decode(self)?);
-    }
-
-    Ok(vec)
-  }
 }
 
 pub trait FromBytes: Deserializer + Sized {
