@@ -1,40 +1,74 @@
 use std::collections::HashMap;
 use crate::common::MapEntry;
 use std::hash::Hash;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, Write, Debug};
 use std::iter::FromIterator;
+use std::error::Error;
 
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+pub type DecoderResult<T> = std::result::Result<T, DecoderError>;
+
+#[derive(Debug)]
+pub enum DecoderError {
+  NotEnoughBytes {
+    type_name: String,
+    index: usize,
+  },
+  InvalidUTF16(std::string::FromUtf16Error),
+}
+
+impl DecoderError {
+  pub fn not_enough_bytes(type_name: impl ToString, index: usize) -> Self {
+    Self::NotEnoughBytes {
+      type_name: type_name.to_string(),
+      index,
+    }
+  }
+}
+
+impl Display for DecoderError {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      DecoderError::NotEnoughBytes { type_name, index } => {
+        f.write_str(&format!("not enough bytes left to decode `{}` starting at index `{}`", type_name, index))
+      }
+      DecoderError::InvalidUTF16(err) => {
+        Display::fmt(err, f)
+      }
+    }
+  }
+}
+
+impl Error for DecoderError {}
 
 pub trait Decoder: Sized {
-  fn decode_u8(&mut self) -> Result<u8>;
-  fn decode_u16(&mut self) -> Result<u16>;
-  fn decode_u32(&mut self) -> Result<u32>;
-  fn decode_u64(&mut self) -> Result<u64>;
-  fn decode_u128(&mut self) -> Result<u128>;
-  fn decode_usize(&mut self) -> Result<usize> { self.decode_u64().map(|it| it as usize) }
+  fn decode_u8(&mut self) -> DecoderResult<u8>;
+  fn decode_u16(&mut self) -> DecoderResult<u16>;
+  fn decode_u32(&mut self) -> DecoderResult<u32>;
+  fn decode_u64(&mut self) -> DecoderResult<u64>;
+  fn decode_u128(&mut self) -> DecoderResult<u128>;
+  fn decode_usize(&mut self) -> DecoderResult<usize> { self.decode_u64().map(|it| it as usize) }
 
-  fn decode_i8(&mut self) -> Result<i8>;
-  fn decode_i16(&mut self) -> Result<i16>;
-  fn decode_i32(&mut self) -> Result<i32>;
-  fn decode_i64(&mut self) -> Result<i64>;
-  fn decode_i128(&mut self) -> Result<i128>;
-  fn decode_isize(&mut self) -> Result<isize> { self.decode_i64().map(|it| it as isize) }
+  fn decode_i8(&mut self) -> DecoderResult<i8>;
+  fn decode_i16(&mut self) -> DecoderResult<i16>;
+  fn decode_i32(&mut self) -> DecoderResult<i32>;
+  fn decode_i64(&mut self) -> DecoderResult<i64>;
+  fn decode_i128(&mut self) -> DecoderResult<i128>;
+  fn decode_isize(&mut self) -> DecoderResult<isize> { self.decode_i64().map(|it| it as isize) }
 
-  fn decode_f32(&mut self) -> Result<f32>;
-  fn decode_f64(&mut self) -> Result<f64>;
+  fn decode_f32(&mut self) -> DecoderResult<f32>;
+  fn decode_f64(&mut self) -> DecoderResult<f64>;
 
-  fn decode_bool(&mut self) -> Result<bool> { self.decode_u8().map(|it| it != 0) }
+  fn decode_bool(&mut self) -> DecoderResult<bool> { self.decode_u8().map(|it| it != 0) }
 
-  fn decode_slice<T: Deserializer>(&mut self) -> Result<Vec<T>>;
+  fn decode_slice<T: Deserializer>(&mut self) -> DecoderResult<Vec<T>>;
 
-  fn decode_string(&mut self) -> Result<String> {
+  fn decode_string(&mut self) -> DecoderResult<String> {
     let data = self.decode_slice::<u16>()?;
 
-    Ok(String::from_utf16(&data)?)
+    String::from_utf16(&data).map_err(DecoderError::InvalidUTF16)
   }
 
-  fn decode_map<K: Deserializer + Eq + Hash, V: Deserializer>(&mut self) -> Result<HashMap<K, V>> {
+  fn decode_map<K: Deserializer + Eq + Hash, V: Deserializer>(&mut self) -> DecoderResult<HashMap<K, V>> {
     let mut map = HashMap::new();
 
     for entry in self.decode_slice::<MapEntry<K, V>>()? {
@@ -44,7 +78,7 @@ pub trait Decoder: Sized {
     Ok(map)
   }
 
-  fn decode_value<T: Deserializer>(&mut self) -> Result<T> {
+  fn decode_value<T: Deserializer>(&mut self) -> DecoderResult<T> {
     T::decode(self)
   }
 }
@@ -55,7 +89,7 @@ pub struct ByteDecoder {
 }
 
 impl ByteDecoder {
-  pub fn new(bytes: impl IntoIterator<Item = u8>) -> Self {
+  pub fn new(bytes: impl IntoIterator<Item=u8>) -> Self {
     Self { bytes: bytes.into_iter().collect(), index: 0 }
   }
 
@@ -63,10 +97,10 @@ impl ByteDecoder {
     &self.bytes
   }
 
-  fn next_bytes_n<const N: usize>(&mut self, typ: &str) -> Result<[u8; N]> {
+  fn next_bytes_n<const N: usize>(&mut self, type_name: &str) -> DecoderResult<[u8; N]> {
     let bytes = &self.bytes
       .get(self.index..self.index + N)
-      .ok_or(format!("not enough bytes left to decode `{}` starting at index `{}`", typ, self.index))?;
+      .ok_or(DecoderError::not_enough_bytes(type_name, self.index))?;
 
     self.index += N;
 
@@ -79,27 +113,27 @@ impl ByteDecoder {
 }
 
 impl Decoder for ByteDecoder {
-  fn decode_u8(&mut self) -> Result<u8> { Ok(u8::from_ne_bytes(self.next_bytes_n::<1>("u8")?)) }
-  fn decode_u16(&mut self) -> Result<u16> { Ok(u16::from_ne_bytes(self.next_bytes_n::<2>("u16")?)) }
-  fn decode_u32(&mut self) -> Result<u32> { Ok(u32::from_ne_bytes(self.next_bytes_n::<4>("u32")?)) }
-  fn decode_u64(&mut self) -> Result<u64> { Ok(u64::from_ne_bytes(self.next_bytes_n::<8>("u64")?)) }
-  fn decode_u128(&mut self) -> Result<u128> { Ok(u128::from_ne_bytes(self.next_bytes_n::<16>("u128")?)) }
+  fn decode_u8(&mut self) -> DecoderResult<u8> { Ok(u8::from_be_bytes(self.next_bytes_n::<1>("u8")?)) }
+  fn decode_u16(&mut self) -> DecoderResult<u16> { Ok(u16::from_be_bytes(self.next_bytes_n::<2>("u16")?)) }
+  fn decode_u32(&mut self) -> DecoderResult<u32> { Ok(u32::from_be_bytes(self.next_bytes_n::<4>("u32")?)) }
+  fn decode_u64(&mut self) -> DecoderResult<u64> { Ok(u64::from_be_bytes(self.next_bytes_n::<8>("u64")?)) }
+  fn decode_u128(&mut self) -> DecoderResult<u128> { Ok(u128::from_be_bytes(self.next_bytes_n::<16>("u128")?)) }
 
-  fn decode_i8(&mut self) -> Result<i8> { Ok(i8::from_ne_bytes(self.next_bytes_n::<1>("i8")?)) }
-  fn decode_i16(&mut self) -> Result<i16> { Ok(i16::from_ne_bytes(self.next_bytes_n::<2>("i16")?)) }
-  fn decode_i32(&mut self) -> Result<i32> { Ok(i32::from_ne_bytes(self.next_bytes_n::<4>("i32")?)) }
-  fn decode_i64(&mut self) -> Result<i64> { Ok(i64::from_ne_bytes(self.next_bytes_n::<8>("i64")?)) }
-  fn decode_i128(&mut self) -> Result<i128> { Ok(i128::from_ne_bytes(self.next_bytes_n::<16>("i128")?)) }
+  fn decode_i8(&mut self) -> DecoderResult<i8> { Ok(i8::from_be_bytes(self.next_bytes_n::<1>("i8")?)) }
+  fn decode_i16(&mut self) -> DecoderResult<i16> { Ok(i16::from_be_bytes(self.next_bytes_n::<2>("i16")?)) }
+  fn decode_i32(&mut self) -> DecoderResult<i32> { Ok(i32::from_be_bytes(self.next_bytes_n::<4>("i32")?)) }
+  fn decode_i64(&mut self) -> DecoderResult<i64> { Ok(i64::from_be_bytes(self.next_bytes_n::<8>("i64")?)) }
+  fn decode_i128(&mut self) -> DecoderResult<i128> { Ok(i128::from_be_bytes(self.next_bytes_n::<16>("i128")?)) }
 
-  fn decode_f32(&mut self) -> Result<f32> { Ok(f32::from_ne_bytes(self.next_bytes_n::<4>("f32")?)) }
-  fn decode_f64(&mut self) -> Result<f64> { Ok(f64::from_ne_bytes(self.next_bytes_n::<8>("f64")?)) }
+  fn decode_f32(&mut self) -> DecoderResult<f32> { Ok(f32::from_be_bytes(self.next_bytes_n::<4>("f32")?)) }
+  fn decode_f64(&mut self) -> DecoderResult<f64> { Ok(f64::from_be_bytes(self.next_bytes_n::<8>("f64")?)) }
 
-  fn decode_slice<T: Deserializer>(&mut self) -> Result<Vec<T>> {
+  fn decode_slice<T: Deserializer>(&mut self) -> DecoderResult<Vec<T>> {
     let total_bytes = self.decode_usize()?;
     let bytes_per_element = self.decode_usize()?;
 
     if total_bytes == 0 || bytes_per_element == 0 {
-      return Ok(Vec::new())
+      return Ok(Vec::new());
     }
 
     let len = total_bytes / bytes_per_element;
@@ -114,7 +148,7 @@ impl Decoder for ByteDecoder {
 }
 
 pub trait FromBytes: Deserializer + Sized {
-  fn from_bytes(bytes: impl IntoIterator<Item = u8>) -> Result<Self> {
+  fn from_bytes(bytes: impl IntoIterator<Item=u8>) -> DecoderResult<Self> {
     let mut decoder = ByteDecoder::new(bytes);
     Ok(Self::decode(&mut decoder)?)
   }
@@ -123,17 +157,17 @@ pub trait FromBytes: Deserializer + Sized {
 impl<T: Deserializer> FromBytes for T {}
 
 pub trait Deserializer: Sized {
-  fn decode(decoder: &mut impl Decoder) -> Result<Self>;
+  fn decode(decoder: &mut impl Decoder) -> DecoderResult<Self>;
 }
 
 impl<T: Deserializer> Deserializer for Vec<T> {
-  fn decode(decoder: &mut impl Decoder) -> Result<Self> {
+  fn decode(decoder: &mut impl Decoder) -> DecoderResult<Self> {
     decoder.decode_slice()
   }
 }
 
-impl <K: Deserializer + Eq + Hash, V: Deserializer> Deserializer for HashMap<K, V> {
-  fn decode(decoder: &mut impl Decoder) -> Result<Self> {
+impl<K: Deserializer + Eq + Hash, V: Deserializer> Deserializer for HashMap<K, V> {
+  fn decode(decoder: &mut impl Decoder) -> DecoderResult<Self> {
     decoder.decode_map()
   }
 }
@@ -141,7 +175,7 @@ impl <K: Deserializer + Eq + Hash, V: Deserializer> Deserializer for HashMap<K, 
 macro_rules! impl_deserializer_tuple {
   ($($name:ident),+) => {
     impl <$($name: Deserializer),+> Deserializer for ($($name),+) {
-      fn decode(decoder: &mut impl Decoder) -> Result<Self> {
+      fn decode(decoder: &mut impl Decoder) -> DecoderResult<Self> {
         Ok(($(decoder.decode_value::<$name>()?),+))
       }
     }
@@ -160,7 +194,7 @@ impl_deserializer_tuple!(A, B, C, D, E, F, G, J, K);
 macro_rules! impl_deserializer {
   ($(($type:ty, $decode:ident)),+ $(,)?) => {
     $(impl Deserializer for $type {
-      fn decode(decoder: &mut impl Decoder) -> Result<Self> {
+      fn decode(decoder: &mut impl Decoder) -> DecoderResult<Self> {
         decoder.$decode()
       }
     })+

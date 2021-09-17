@@ -13,7 +13,7 @@ impl<K: Serializer + Eq + Hash, V: Serializer> Serializer for MapEntry<&K, &V> {
 }
 
 impl<K: Deserializer + Eq + Hash, V: Deserializer> Deserializer for MapEntry<K, V> {
-  fn decode(decoder: &mut impl Decoder) -> crate::decoder::Result<Self> {
+  fn decode(decoder: &mut impl Decoder) -> crate::decoder::DecoderResult<Self> {
     Ok(MapEntry(decoder.decode_value::<K>()?, decoder.decode_value::<V>()?))
   }
 }

@@ -30,7 +30,7 @@ impl Serializer for Data {
 }
 
 impl Deserializer for Data {
-  fn decode(decoder: &mut impl Decoder) -> Result<Self> {
+  fn decode(decoder: &mut impl Decoder) -> DecoderResult<Self> {
     Ok(Self {
       name: decoder.decode_string()?,
       age: decoder.decode_u32()?,
@@ -45,7 +45,7 @@ impl Deserializer for Data {
 #[test]
 fn test_invalid_data() {
   fn test<const N: usize>() {
-    let bytes = [0xFF; N];
+    let bytes = [0x00; N];
 
     let value = Data::from_bytes(bytes);
 

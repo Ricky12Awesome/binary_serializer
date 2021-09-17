@@ -65,20 +65,20 @@ impl ByteEncoder {
 }
 
 impl Encoder for ByteEncoder {
-  fn encode_u8(&mut self, value: u8) { self.bytes.write(&value.to_ne_bytes()).unwrap(); }
-  fn encode_u16(&mut self, value: u16) { self.bytes.write(&value.to_ne_bytes()).unwrap(); }
-  fn encode_u32(&mut self, value: u32) { self.bytes.write(&value.to_ne_bytes()).unwrap(); }
-  fn encode_u64(&mut self, value: u64) { self.bytes.write(&value.to_ne_bytes()).unwrap(); }
-  fn encode_u128(&mut self, value: u128) { self.bytes.write(&value.to_ne_bytes()).unwrap(); }
+  fn encode_u8(&mut self, value: u8) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
+  fn encode_u16(&mut self, value: u16) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
+  fn encode_u32(&mut self, value: u32) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
+  fn encode_u64(&mut self, value: u64) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
+  fn encode_u128(&mut self, value: u128) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
 
-  fn encode_i8(&mut self, value: i8) { self.bytes.write(&value.to_ne_bytes()).unwrap(); }
-  fn encode_i16(&mut self, value: i16) { self.bytes.write(&value.to_ne_bytes()).unwrap(); }
-  fn encode_i32(&mut self, value: i32) { self.bytes.write(&value.to_ne_bytes()).unwrap(); }
-  fn encode_i64(&mut self, value: i64) { self.bytes.write(&value.to_ne_bytes()).unwrap(); }
-  fn encode_i128(&mut self, value: i128) { self.bytes.write(&value.to_ne_bytes()).unwrap(); }
+  fn encode_i8(&mut self, value: i8) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
+  fn encode_i16(&mut self, value: i16) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
+  fn encode_i32(&mut self, value: i32) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
+  fn encode_i64(&mut self, value: i64) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
+  fn encode_i128(&mut self, value: i128) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
 
-  fn encode_f32(&mut self, value: f32) { self.bytes.write(&value.to_ne_bytes()).unwrap(); }
-  fn encode_f64(&mut self, value: f64) { self.bytes.write(&value.to_ne_bytes()).unwrap(); }
+  fn encode_f32(&mut self, value: f32) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
+  fn encode_f64(&mut self, value: f64) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
 
   fn encode_string(&mut self, value: impl ToString) {
     let str = value.to_string();
@@ -104,19 +104,11 @@ impl Encoder for ByteEncoder {
     };
 
     // TODO: Put this into separate function
-    let mut bytes = bytes_per_element.to_ne_bytes();
-
-    bytes.reverse();
-
-    for b in bytes {
+    for b in bytes_per_element.to_le_bytes() {
       self.bytes.insert(index, b);
     }
 
-    let mut bytes = total_bytes.to_ne_bytes();
-
-    bytes.reverse();
-
-    for b in bytes {
+    for b in total_bytes.to_le_bytes() {
       self.bytes.insert(index, b);
     }
   }
