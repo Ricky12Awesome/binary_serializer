@@ -30,15 +30,35 @@ impl Serializer for Data {
 }
 
 impl Deserializer for Data {
-  fn decode(decoder: &mut impl Decoder) -> Self {
-    Self {
-      name: decoder.decode_string(),
-      age: decoder.decode_u32(),
-      bool: decoder.decode_bool(),
-      some_random_data: decoder.decode_slice::<HashMap<String, u32>>(),
-      non_string_map: decoder.decode_map::<u32, (u32, u32)>(),
-    }
+  fn decode(decoder: &mut impl Decoder) -> Result<Self> {
+    Ok(Self {
+      name: decoder.decode_string()?,
+      age: decoder.decode_u32()?,
+      bool: decoder.decode_bool()?,
+      some_random_data: decoder.decode_slice::<HashMap<String, u32>>()?,
+      non_string_map: decoder.decode_map::<u32, (u32, u32)>()?,
+    })
   }
+}
+
+#[cfg(test)]
+#[test]
+fn test_invalid_data() {
+  fn test<const N: usize>() {
+    let bytes = [0xFF; N];
+
+    let value = Data::from_bytes(bytes);
+
+    println!("{}: {:?}", N, value);
+  }
+
+  test::<16>();
+  test::<32>();
+  test::<64>();
+  test::<96>();
+  test::<128>();
+  test::<192>();
+  test::<256>();
 }
 
 #[cfg(test)]
@@ -63,7 +83,7 @@ fn run() {
 
   let start = std::time::SystemTime::now();
   let bytes = data.to_bytes();
-  let data2 = Data::from_bytes(bytes.clone());
+  let data2 = Data::from_bytes(bytes.clone()).unwrap();
   let end = start.elapsed().unwrap();
 
   println!("Serialized Bytes {:?}", &bytes);
