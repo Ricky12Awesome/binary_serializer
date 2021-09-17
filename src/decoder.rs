@@ -20,6 +20,10 @@ pub trait Decoder {
   fn decode_f32(&mut self) -> f32;
   fn decode_f64(&mut self) -> f64;
 
+  fn decode_bool(&mut self) -> bool {
+    self.decode_u8() != 0
+  }
+
   fn decode_string(&mut self) -> String;
   fn decode_slice<T: Deserializer>(&mut self) -> Vec<T>;
   fn decode_map<K: Deserializer + Eq + Hash, V: Deserializer>(&mut self) -> HashMap<K, V>;
@@ -163,6 +167,6 @@ macro_rules! impl_deserializer {
 impl_deserializer!(
   (u8, decode_u8), (u16, decode_u16), (u32, decode_u32), (u64, decode_u64), (u128, decode_u128), (usize, decode_usize),
   (i8, decode_i8), (i16, decode_i16), (i32, decode_i32), (i64, decode_i64), (i128, decode_i128), (isize, decode_isize),
-  (f32, decode_f32), (f64, decode_f64), (String, decode_string)
+  (f32, decode_f32), (f64, decode_f64), (bool, decode_bool), (String, decode_string)
 );
 

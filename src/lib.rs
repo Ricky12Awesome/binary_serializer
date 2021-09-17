@@ -14,24 +14,27 @@ pub mod decoder;
 struct Data {
   name: String,
   age: u32,
+  bool: bool,
   some_random_data: Vec<HashMap<String, u32>>,
   non_string_map: HashMap<u32, (u32, u32)>,
 }
 
-impl encoder::Serializer for Data {
-  fn encode(&self, encoder: &mut impl encoder::Encoder) {
+impl Serializer for Data {
+  fn encode(&self, encoder: &mut impl Encoder) {
     encoder.encode_string(&self.name);
     encoder.encode_u32(self.age);
+    encoder.encode_bool(self.bool);
     encoder.encode_slice(&self.some_random_data);
     encoder.encode_map(&self.non_string_map);
   }
 }
 
-impl decoder::Deserializer for Data {
-  fn decode(decoder: &mut impl decoder::Decoder) -> Self {
+impl Deserializer for Data {
+  fn decode(decoder: &mut impl Decoder) -> Self {
     Self {
       name: decoder.decode_string(),
       age: decoder.decode_u32(),
+      bool: decoder.decode_bool(),
       some_random_data: decoder.decode_slice::<HashMap<String, u32>>(),
       non_string_map: decoder.decode_map::<u32, (u32, u32)>(),
     }
@@ -44,6 +47,7 @@ fn run() {
   let data = Data {
     name: "Some Name".to_string(),
     age: 69,
+    bool: true,
     some_random_data: vec![
       HashMap::from_iter([("test".to_string(), 2)]),
       HashMap::from_iter([("eiuhgieurohbn".to_string(), 238)]),
@@ -59,11 +63,12 @@ fn run() {
 
   let start = std::time::SystemTime::now();
   let bytes = data.to_bytes();
-  let data2 = Data::from_bytes(bytes);
+  let data2 = Data::from_bytes(bytes.clone());
   let end = start.elapsed().unwrap();
 
-  println!("{:?}", data);
-  println!("{:?}", data2);
-  println!("{:?}", end);
+  println!("Serialized Bytes {:?}", &bytes);
+  println!("Original {:?}", data);
+  println!("Deserialized {:?}", data2);
+  println!("Serialize to Deserialize took {:?}", end);
   assert_eq!(data, data2);
 }

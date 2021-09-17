@@ -22,8 +22,11 @@ pub trait Encoder {
   fn encode_f32(&mut self, value: f32);
   fn encode_f64(&mut self, value: f64);
 
-  fn encode_string(&mut self, value: impl ToString);
+  fn encode_bool(&mut self, value: bool) {
+    self.encode_u8(value as u8);
+  }
 
+  fn encode_string(&mut self, value: impl ToString);
   fn encode_slice<T: Serializer>(&mut self, value: &[T]);
   fn encode_map<K: Serializer + Eq + Hash, V: Serializer>(&mut self, value: &HashMap<K, V>);
   fn encode_value<T: Serializer>(&mut self, value: &impl Serializer);
@@ -217,6 +220,6 @@ macro_rules! impl_serializer {
 impl_serializer!(
   (u8, encode_u8), (u16, encode_u16), (u32, encode_u32), (u64, encode_u64), (u128, encode_u128), (usize, encode_usize),
   (i8, encode_i8), (i16, encode_i16), (i32, encode_i32), (i64, encode_i64), (i128, encode_i128), (isize, encode_isize),
-  (f32, encode_f32), (f64, encode_f64)
+  (f32, encode_f32), (f64, encode_f64), (bool, encode_bool)
 );
 
