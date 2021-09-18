@@ -88,28 +88,10 @@ impl Encoder for ByteEncoder {
   }
 
   fn encode_slice<T: Serializer>(&mut self, value: &[T]) {
-    let total_bytes = ByteTracker::begin(&self.bytes);
+    self.encode_usize(value.len());
 
     for value in value {
       value.encode(self);
-    }
-
-    let index = total_bytes.start;
-    let total_bytes = total_bytes.end(&self.bytes);
-    let bytes_per_element = total_bytes.checked_div(value.len());
-    let bytes_per_element = if let Some(n) = bytes_per_element { n } else {
-      if total_bytes != 0 {
-        panic!("All elements must be the same size.")
-      } else { 0 }
-    };
-
-    // TODO: Put this into separate function
-    for b in bytes_per_element.to_le_bytes() {
-      self.bytes.insert(index, b);
-    }
-
-    for b in total_bytes.to_le_bytes() {
-      self.bytes.insert(index, b);
     }
   }
 

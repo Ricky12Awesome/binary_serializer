@@ -62,14 +62,7 @@ pub trait Decoder: Sized {
   fn decode_bool(&mut self) -> DecoderResult<bool> { self.decode_u8().map(|it| it != 0) }
 
   fn decode_slice<T: Deserializer>(&mut self) -> DecoderResult<Vec<T>> {
-    let total_bytes = self.decode_usize()?;
-    let bytes_per_element = self.decode_usize()?;
-
-    if total_bytes == 0 || bytes_per_element == 0 {
-      return Ok(Vec::new());
-    }
-
-    let len = total_bytes / bytes_per_element;
+    let len = self.decode_usize()?;
     let mut vec = Vec::with_capacity(len);
 
     for _ in 0..len {
@@ -110,9 +103,7 @@ impl ByteDecoder {
     Self { bytes: bytes.into_iter().collect(), index: 0 }
   }
 
-  pub fn bytes(&self) -> &Vec<u8> {
-    &self.bytes
-  }
+  pub fn bytes(&self) -> &Vec<u8> { &self.bytes }
 
   fn read_bytes<const N: usize>(&mut self, type_name: &str) -> DecoderResult<[u8; N]> {
     let bytes = &self.bytes
