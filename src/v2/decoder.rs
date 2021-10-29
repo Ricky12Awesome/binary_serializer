@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter, Write};
 use std::hash::Hash;
@@ -97,11 +98,17 @@ impl ByteDecoder {
   pub fn bytes(&self) -> &Vec<u8> { &self.bytes }
 
   fn read_bytes<const N: usize>(&mut self, type_name: &str) -> DecoderResult<[u8; N]> {
-    let bytes = self.bytes
-      .get(self.index..self.index + N)
-      .ok_or_else(|| DecoderError::not_enough_bytes(type_name, self.index))?;
+    let begin = self.index;
+    let end = self.index + N;
+
+    if end > self.bytes.len() {
+      return Err(DecoderError::not_enough_bytes(type_name, self.index));
+    }
 
     self.index += N;
+
+    let bytes = self.bytes.get(begin..end).unwrap();
+    // let value: [u8; N] = bytes.try_into().unwrap();
 
     let value = unsafe {
       *(bytes.as_ptr() as *const [u8; N])
@@ -129,33 +136,37 @@ impl Decoder for ByteDecoder {
 
   fn decode_slice<T: Deserializer>(&mut self) -> DecoderResult<Vec<T>> {
     let len = self.decode_usize()?;
-    let is_little_endian = self.decode_bool()?;
+    let _is_little_endian = self.decode_bool()?;
     let mut vec = Vec::with_capacity(len);
 
-    if is_little_endian && IS_LITTLE_ENDIAN && T::IS_PRIMITIVE {
-      let size = len * std::mem::size_of::<T>();
-      let bytes = self.bytes
-        .get(self.index..self.index + size)
-        .ok_or_else(|| {
-          let name = format!("[{}; {}]", std::any::type_name::<T>(), len);
-          DecoderError::not_enough_bytes(name, self.index)
-        })?;
+    // if is_little_endian && IS_LITTLE_ENDIAN && T::IS_PRIMITIVE {
+    //   let size = len * std::mem::size_of::<T>();
+    //   let bytes = self.bytes
+    //     .get(self.index..self.index + size)
+    //     .ok_or_else(|| {
+    //       let name = format!("[{}; {}]", std::any::type_name::<T>(), len);
+    //       DecoderError::not_enough_bytes(name, self.index)
+    //     })?;
+    //
+    //   self.index += size;
+    //
+    //   let slice = bytes.as_ptr() as *const T;
+    //
+    //   unsafe {
+    //     let slice = std::slice::from_raw_parts(slice, len);
+    //
+    //     for element in slice {
+    //       vec.push(std::ptr::read(element as *const _));
+    //     }
+    //   }
+    // } else {
+    //   for _ in 0..len {
+    //     vec.push(T::decode(self)?);
+    //   }
+    // }
 
-      self.index += size;
-
-      let slice = bytes.as_ptr() as *const T;
-
-      unsafe {
-        let slice = std::slice::from_raw_parts(slice, len);
-
-        for element in slice {
-          vec.push(std::ptr::read(element as *const _));
-        }
-      }
-    } else {
-      for _ in 0..len {
-        vec.push(T::decode(self)?);
-      }
+    for _ in 0..len {
+      vec.push(T::decode(self)?);
     }
 
     Ok(vec)

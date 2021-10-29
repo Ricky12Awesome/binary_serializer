@@ -8,9 +8,9 @@ fn criterion_benchmark(c: &mut Criterion) {
     let bytes = [0u64; 16384].to_bytes();
 
     c.bench_with_input(BenchmarkId::new("from_bytes-v1", bytes.len()), &bytes, |b, bytes| b.iter(|| {
-      let bytes = black_box(bytes.clone());
+      let bytes = bytes.clone();
 
-      Vec::<u64>::from_bytes(bytes).unwrap();
+      black_box(Vec::<u64>::from_bytes(bytes).unwrap());
     }));
   }
 
@@ -21,9 +21,9 @@ fn criterion_benchmark(c: &mut Criterion) {
     let bytes = [0u64; 16384].to_bytes();
 
     c.bench_with_input(BenchmarkId::new("from_bytes-v2", bytes.len()), &bytes, |b, bytes| b.iter(|| {
-      let bytes = black_box(bytes.clone());
+      let bytes = bytes.clone();
 
-      Vec::<u64>::from_bytes(bytes).unwrap();
+      black_box(Vec::<u64>::from_bytes(bytes).unwrap());
     }));
   }
 }
