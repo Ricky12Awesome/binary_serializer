@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::io::Write;
 
-use crate::common::MapEntry;
+use crate::v2::common::MapEntry;
 
 pub trait Encoder {
   fn encode_u8(&mut self, value: u8);
@@ -65,20 +65,20 @@ impl ByteEncoder {
 }
 
 impl Encoder for ByteEncoder {
-  fn encode_u8(&mut self, value: u8) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_u16(&mut self, value: u16) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_u32(&mut self, value: u32) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_u64(&mut self, value: u64) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_u128(&mut self, value: u128) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
+  fn encode_u8(&mut self, value: u8) { self.bytes.write(&value.to_le_bytes()).unwrap(); }
+  fn encode_u16(&mut self, value: u16) { self.bytes.write(&value.to_le_bytes()).unwrap(); }
+  fn encode_u32(&mut self, value: u32) { self.bytes.write(&value.to_le_bytes()).unwrap(); }
+  fn encode_u64(&mut self, value: u64) { self.bytes.write(&value.to_le_bytes()).unwrap(); }
+  fn encode_u128(&mut self, value: u128) { self.bytes.write(&value.to_le_bytes()).unwrap(); }
 
-  fn encode_i8(&mut self, value: i8) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_i16(&mut self, value: i16) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_i32(&mut self, value: i32) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_i64(&mut self, value: i64) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_i128(&mut self, value: i128) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
+  fn encode_i8(&mut self, value: i8) { self.bytes.write(&value.to_le_bytes()).unwrap(); }
+  fn encode_i16(&mut self, value: i16) { self.bytes.write(&value.to_le_bytes()).unwrap(); }
+  fn encode_i32(&mut self, value: i32) { self.bytes.write(&value.to_le_bytes()).unwrap(); }
+  fn encode_i64(&mut self, value: i64) { self.bytes.write(&value.to_le_bytes()).unwrap(); }
+  fn encode_i128(&mut self, value: i128) { self.bytes.write(&value.to_le_bytes()).unwrap(); }
 
-  fn encode_f32(&mut self, value: f32) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_f64(&mut self, value: f64) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
+  fn encode_f32(&mut self, value: f32) { self.bytes.write(&value.to_le_bytes()).unwrap(); }
+  fn encode_f64(&mut self, value: f64) { self.bytes.write(&value.to_le_bytes()).unwrap(); }
 
   fn encode_string(&mut self, value: impl ToString) {
     let str = value.to_string();
@@ -89,7 +89,12 @@ impl Encoder for ByteEncoder {
 
   fn encode_slice<T: Serializer>(&mut self, value: &[T]) {
     self.encode_usize(value.len());
-
+    
+    #[cfg(target_endian = "little")]
+    self.encode_bool(true);
+    #[cfg(not(target_endian = "little"))]
+    self.encode_bool(false);
+    
     for value in value {
       value.encode(self);
     }

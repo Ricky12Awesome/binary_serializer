@@ -4,7 +4,7 @@ use std::fmt::{Debug, Display, Formatter, Write};
 use std::hash::Hash;
 use std::iter::FromIterator;
 
-use crate::common::MapEntry;
+use crate::v1::common::MapEntry;
 
 pub type DecoderResult<T> = std::result::Result<T, DecoderError>;
 
