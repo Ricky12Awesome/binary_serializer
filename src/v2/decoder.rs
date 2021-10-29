@@ -142,14 +142,14 @@ impl<'a> Decoder for ByteDecoder<'a> {
 
   fn decode_slice<T: Deserializer>(&mut self) -> DecoderResult<Vec<T>> {
     let len = self.decode_usize()?;
-    let mut vec = Vec::with_capacity(len);
-
     let begin = self.index;
     let end = begin + len * T::SIZE;
 
     if end > self.bytes.len() {
       return Err(DecoderError::not_enough_bytes(format!("[{}; {}]", type_name::<T>(), len), self.index));
     }
+
+    let mut vec = Vec::with_capacity(len);
 
     // if self.endian.is_native() && T::IS_PRIMITIVE {
     //   unsafe {
