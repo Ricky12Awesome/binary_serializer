@@ -3,6 +3,24 @@ use std::hash::Hash;
 use crate::v2::decoder::{Decoder, Deserializer};
 use crate::v2::encoder::{Encoder, Serializer};
 
+pub enum ByteEndian {
+  Big,
+  Little,
+}
+
+impl ByteEndian {
+  pub const fn is_native(&self) -> bool {
+    match self {
+      ByteEndian::Big => cfg!(target_endian = "big"),
+      ByteEndian::Little => cfg!(target_endian = "little")
+    }
+  }
+
+  pub fn order() {
+
+  }
+}
+
 pub struct MapEntry<K: Eq + Hash, V>(pub K, pub V);
 
 #[cfg(target_endian = "little")]

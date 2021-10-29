@@ -1,11 +1,14 @@
+use std::any::type_name;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter, Write};
 use std::hash::Hash;
 use std::iter::FromIterator;
+use std::mem::size_of;
+use std::ops::Index;
 
-use crate::v2::common::{IS_LITTLE_ENDIAN, MapEntry};
+use crate::v2::common::{ByteEndian, IS_LITTLE_ENDIAN, MapEntry};
 
 pub type DecoderResult<T> = std::result::Result<T, DecoderError>;
 
@@ -62,7 +65,16 @@ pub trait Decoder: Sized {
 
   fn decode_bool(&mut self) -> DecoderResult<bool> { self.decode_u8().map(|it| it != 0) }
 
-  fn decode_slice<T: Deserializer>(&mut self) -> DecoderResult<Vec<T>>;
+  fn decode_slice<T: Deserializer>(&mut self) -> DecoderResult<Vec<T>> {
+    let len = self.decode_usize()?;
+    let mut vec = Vec::with_capacity(len);
+
+    for _ in 0..len {
+      vec.push(T::decode(self)?);
+    }
+
+    Ok(vec)
+  }
 
   fn decode_string(&mut self) -> DecoderResult<String> {
     let data = self.decode_slice::<u16>()?;
@@ -71,9 +83,10 @@ pub trait Decoder: Sized {
   }
 
   fn decode_map<K: Deserializer + Eq + Hash, V: Deserializer>(&mut self) -> DecoderResult<HashMap<K, V>> {
-    let mut map = HashMap::new();
+    let entries = self.decode_slice::<MapEntry<K, V>>()?;
+    let mut map = HashMap::with_capacity(entries.len());
 
-    for entry in self.decode_slice::<MapEntry<K, V>>()? {
+    for entry in entries {
       map.insert(entry.0, entry.1);
     }
 
@@ -85,17 +98,18 @@ pub trait Decoder: Sized {
   }
 }
 
-pub struct ByteDecoder {
-  bytes: Vec<u8>,
+pub struct ByteDecoder<'a> {
+  bytes: &'a [u8],
+  endian: ByteEndian,
   index: usize,
 }
 
-impl ByteDecoder {
-  pub fn new(bytes: impl IntoIterator<Item=u8>) -> Self {
-    Self { bytes: bytes.into_iter().collect(), index: 0 }
+impl <'a> ByteDecoder<'a> {
+  pub fn new(bytes: &'a [u8], endian: ByteEndian) -> Self {
+    Self { bytes, endian, index: 0 }
   }
 
-  pub fn bytes(&self) -> &Vec<u8> { &self.bytes }
+  pub fn bytes(&self) -> &[u8] { &self.bytes }
 
   fn read_bytes<const N: usize>(&mut self, type_name: &str) -> DecoderResult<[u8; N]> {
     let begin = self.index;
@@ -107,18 +121,20 @@ impl ByteDecoder {
 
     self.index += N;
 
-    let bytes = self.bytes.get(begin..end).unwrap();
+    // this is slower then the unsafe one by roughly 50%
+    // let bytes = self.bytes.get(begin..end).unwrap();
     // let value: [u8; N] = bytes.try_into().unwrap();
 
     let value = unsafe {
-      *(bytes.as_ptr() as *const [u8; N])
+      let ptr = self.bytes.get_unchecked(begin) as *const u8;
+      *(ptr as *const [u8; N])
     };
 
     Ok(value)
   }
 }
 
-impl Decoder for ByteDecoder {
+impl <'a> Decoder for ByteDecoder<'a> {
   fn decode_u8(&mut self) -> DecoderResult<u8> { Ok(u8::from_le_bytes(self.read_bytes::<1>("u8")?)) }
   fn decode_u16(&mut self) -> DecoderResult<u16> { Ok(u16::from_le_bytes(self.read_bytes::<2>("u16")?)) }
   fn decode_u32(&mut self) -> DecoderResult<u32> { Ok(u32::from_le_bytes(self.read_bytes::<4>("u32")?)) }
@@ -136,37 +152,18 @@ impl Decoder for ByteDecoder {
 
   fn decode_slice<T: Deserializer>(&mut self) -> DecoderResult<Vec<T>> {
     let len = self.decode_usize()?;
-    let _is_little_endian = self.decode_bool()?;
     let mut vec = Vec::with_capacity(len);
 
-    // if is_little_endian && IS_LITTLE_ENDIAN && T::IS_PRIMITIVE {
-    //   let size = len * std::mem::size_of::<T>();
-    //   let bytes = self.bytes
-    //     .get(self.index..self.index + size)
-    //     .ok_or_else(|| {
-    //       let name = format!("[{}; {}]", std::any::type_name::<T>(), len);
-    //       DecoderError::not_enough_bytes(name, self.index)
-    //     })?;
-    //
-    //   self.index += size;
-    //
-    //   let slice = bytes.as_ptr() as *const T;
-    //
-    //   unsafe {
-    //     let slice = std::slice::from_raw_parts(slice, len);
-    //
-    //     for element in slice {
-    //       vec.push(std::ptr::read(element as *const _));
-    //     }
-    //   }
-    // } else {
-    //   for _ in 0..len {
-    //     vec.push(T::decode(self)?);
-    //   }
-    // }
+    if self.endian.is_native() && T::IS_PRIMITIVE {
+      let ptr = self.bytes.as_ptr() as *const T;
 
-    for _ in 0..len {
-      vec.push(T::decode(self)?);
+      for i in 0..len as isize {
+
+      }
+    } else {
+      for _ in 0..len {
+        vec.push(T::decode(self)?);
+      }
     }
 
     Ok(vec)
@@ -174,8 +171,8 @@ impl Decoder for ByteDecoder {
 }
 
 pub trait FromBytes: Deserializer + Sized {
-  fn from_bytes(bytes: impl IntoIterator<Item=u8>) -> DecoderResult<Self> {
-    let mut decoder = ByteDecoder::new(bytes);
+  fn from_bytes(bytes: &[u8], endian: ByteEndian) -> DecoderResult<Self> {
+    let mut decoder = ByteDecoder::new(bytes, endian);
     Ok(Self::decode(&mut decoder)?)
   }
 }
@@ -184,6 +181,7 @@ impl<T: Deserializer> FromBytes for T {}
 
 pub trait Deserializer: Sized {
   const IS_PRIMITIVE: bool = false;
+  const SIZE: usize = size_of::<Self>();
 
   fn decode(decoder: &mut impl Decoder) -> DecoderResult<Self>;
 }

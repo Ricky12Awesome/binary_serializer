@@ -90,11 +90,6 @@ impl Encoder for ByteEncoder {
   fn encode_slice<T: Serializer>(&mut self, value: &[T]) {
     self.encode_usize(value.len());
     
-    #[cfg(target_endian = "little")]
-    self.encode_bool(true);
-    #[cfg(not(target_endian = "little"))]
-    self.encode_bool(false);
-    
     for value in value {
       value.encode(self);
     }

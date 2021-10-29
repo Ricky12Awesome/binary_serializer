@@ -5,6 +5,7 @@ use std::iter::FromIterator;
 
 use decoder::*;
 use encoder::*;
+use common::ByteEndian;
 
 pub mod common;
 pub mod encoder;
@@ -50,7 +51,7 @@ fn test_invalid_data() {
   fn test<const N: usize>() {
     let bytes = [0x00; N];
 
-    let value = Data::from_bytes(bytes);
+    let value = Data::from_bytes(&bytes, ByteEndian::Little);
 
     println!("{}: {:?}", N, value);
   }
@@ -87,7 +88,7 @@ fn run() {
 
   let start = std::time::SystemTime::now();
   let bytes = data.to_bytes();
-  let data2 = Data::from_bytes(bytes.clone()).unwrap();
+  let data2 = Data::from_bytes(&bytes, ByteEndian::Little).unwrap();
   let end = start.elapsed().unwrap();
 
   println!("Serialized Bytes {:?}", &bytes);
