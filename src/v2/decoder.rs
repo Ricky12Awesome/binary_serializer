@@ -112,23 +112,13 @@ impl<'a> ByteDecoder<'a> {
   pub fn bytes(&self) -> &[u8] { &self.bytes }
 
   fn read_bytes<const N: usize>(&mut self, type_name: &str) -> DecoderResult<[u8; N]> {
-    let begin = self.index;
-    let end = self.index + N;
-
-    if end > self.bytes.len() {
-      return Err(DecoderError::not_enough_bytes(type_name, self.index));
-    }
+    let value = self
+      .bytes
+      .get(self.index..self.index + N)
+      .and_then(|bytes| bytes.try_into().ok())
+      .ok_or_else(|| DecoderError::not_enough_bytes(type_name, self.index))?;
 
     self.index += N;
-
-    // this is slower then the unsafe one by roughly 50%
-    let bytes = &self.bytes[begin..end];
-    let value: [u8; N] = bytes.try_into().unwrap();
-
-    // let value = unsafe {
-    //   let ptr = self.bytes.get_unchecked(begin) as *const u8;
-    //   *(ptr as *const [u8; N])
-    // };
 
     Ok(value)
   }
@@ -170,11 +160,13 @@ impl<'a> Decoder for ByteDecoder<'a> {
     //       vec.push(ptr.add(i).read());
     //     }
     //   }
-    // } else {
-      for _ in 0..len {
-        vec.push(T::decode(self)?);
-      }
+    //
+    //   return Ok(vec)
     // }
+
+    for _ in 0..len {
+      vec.push(T::decode(self)?);
+    }
 
     Ok(vec)
   }

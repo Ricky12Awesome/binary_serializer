@@ -10,7 +10,6 @@ pub trait Encoder {
   fn encode_u32(&mut self, value: u32);
   fn encode_u64(&mut self, value: u64);
   fn encode_u128(&mut self, value: u128);
-  fn encode_usize(&mut self, value: usize) { self.encode_u64(value as u64); }
 
   fn encode_i8(&mut self, value: i8);
   fn encode_i16(&mut self, value: i16);
@@ -22,9 +21,7 @@ pub trait Encoder {
   fn encode_f32(&mut self, value: f32);
   fn encode_f64(&mut self, value: f64);
 
-  fn encode_bool(&mut self, value: bool) {
-    self.encode_u8(value as u8);
-  }
+  fn encode_bool(&mut self, value: bool) { self.encode_u8(value as u8); }
 
   fn encode_string(&mut self, value: impl ToString);
   fn encode_slice<T: Serializer>(&mut self, value: &[T]);

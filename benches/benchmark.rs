@@ -19,7 +19,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     use binary_serializer::v2::decoder::FromBytes;
     use binary_serializer::v2::common::ByteEndian;
 
-    let bytes = [0u64; 16384].to_bytes();
+    let bytes = vec![0u64; 32_000_000].as_slice().to_bytes();
 
     c.bench_with_input(BenchmarkId::new("from_bytes-v2", bytes.len()), &bytes, |b, bytes| b.iter(|| {
       black_box(Vec::<u64>::from_bytes(bytes, ByteEndian::Little).unwrap());
