@@ -122,13 +122,13 @@ impl<'a> ByteDecoder<'a> {
     self.index += N;
 
     // this is slower then the unsafe one by roughly 50%
-    // let bytes = self.bytes.get(begin..end).unwrap();
-    // let value: [u8; N] = bytes.try_into().unwrap();
+    let bytes = &self.bytes[begin..end];
+    let value: [u8; N] = bytes.try_into().unwrap();
 
-    let value = unsafe {
-      let ptr = self.bytes.get_unchecked(begin) as *const u8;
-      *(ptr as *const [u8; N])
-    };
+    // let value = unsafe {
+    //   let ptr = self.bytes.get_unchecked(begin) as *const u8;
+    //   *(ptr as *const [u8; N])
+    // };
 
     Ok(value)
   }
@@ -161,21 +161,20 @@ impl<'a> Decoder for ByteDecoder<'a> {
       return Err(DecoderError::not_enough_bytes(format!("[{}; {}]", type_name::<T>(), len), self.index));
     }
 
-    // About 60% more performant
-    if self.endian.is_native() && T::IS_PRIMITIVE {
-      unsafe {
-        let ptr = self.bytes.get_unchecked(begin) as *const u8;
-        let ptr = ptr as *const T;
-
-        for i in 0..len {
-          vec.push(ptr.add(i).read());
-        }
-      }
-    } else {
+    // if self.endian.is_native() && T::IS_PRIMITIVE {
+    //   unsafe {
+    //     let ptr = self.bytes.get_unchecked(begin) as *const u8;
+    //     let ptr = ptr as *const T;
+    //
+    //     for i in 0..len {
+    //       vec.push(ptr.add(i).read());
+    //     }
+    //   }
+    // } else {
       for _ in 0..len {
         vec.push(T::decode(self)?);
       }
-    }
+    // }
 
     Ok(vec)
   }
