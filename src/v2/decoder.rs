@@ -104,7 +104,7 @@ pub struct ByteDecoder<'a> {
   index: usize,
 }
 
-impl <'a> ByteDecoder<'a> {
+impl<'a> ByteDecoder<'a> {
   pub fn new(bytes: &'a [u8], endian: ByteEndian) -> Self {
     Self { bytes, endian, index: 0 }
   }
@@ -134,7 +134,7 @@ impl <'a> ByteDecoder<'a> {
   }
 }
 
-impl <'a> Decoder for ByteDecoder<'a> {
+impl<'a> Decoder for ByteDecoder<'a> {
   fn decode_u8(&mut self) -> DecoderResult<u8> { Ok(u8::from_le_bytes(self.read_bytes::<1>("u8")?)) }
   fn decode_u16(&mut self) -> DecoderResult<u16> { Ok(u16::from_le_bytes(self.read_bytes::<2>("u16")?)) }
   fn decode_u32(&mut self) -> DecoderResult<u32> { Ok(u32::from_le_bytes(self.read_bytes::<4>("u32")?)) }
@@ -154,11 +154,22 @@ impl <'a> Decoder for ByteDecoder<'a> {
     let len = self.decode_usize()?;
     let mut vec = Vec::with_capacity(len);
 
+    let begin = self.index;
+    let end = begin + len * T::SIZE;
+
+    if end > self.bytes.len() {
+      return Err(DecoderError::not_enough_bytes(format!("[{}; {}]", type_name::<T>(), len), self.index));
+    }
+
+    // About 60% more performant
     if self.endian.is_native() && T::IS_PRIMITIVE {
-      let ptr = self.bytes.as_ptr() as *const T;
+      unsafe {
+        let ptr = self.bytes.get_unchecked(begin) as *const u8;
+        let ptr = ptr as *const T;
 
-      for i in 0..len as isize {
-
+        for i in 0..len {
+          vec.push(ptr.add(i).read());
+        }
       }
     } else {
       for _ in 0..len {
