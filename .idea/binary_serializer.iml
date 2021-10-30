@@ -36,6 +36,7 @@
       <sourceFolder url="file://$MODULE_DIR$/target/debug/build/serde_derive-63c3f0d88a7d3317/out" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/target/debug/build/serde_json-ffe3905b63fceae0/out" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/target/debug/build/syn-490c647d138149b1/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/syn-573eee3dc7f7879f/out" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

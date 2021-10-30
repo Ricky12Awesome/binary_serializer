@@ -1,51 +1,98 @@
-#[cfg(not(feature = "v2"))]
-pub use v1::*;
-#[cfg(feature = "v2")]
-pub use v2::*;
+#![feature(generic_const_exprs)]
 
-#[cfg(not(feature = "exclude_v1"))]
-pub mod v1;
-#[cfg(feature = "v2")]
-pub mod v2;
+use std::collections::HashMap;
 
-#[cfg(test)]
-mod v1_test {
-  use crate::v1::decoder::FromBytes;
-  use crate::v1::encoder::ToBytes;
+use decoder::*;
+use encoder::*;
+use common::ByteEndian;
 
-  #[test]
-  fn test_slice() {
-    let source = [69u32; 10];
-    println!("Source: {:?}", source);
+pub mod common;
+pub mod encoder;
+pub mod decoder;
 
-    let bytes = source.to_bytes();
-    let data = Vec::<u32>::from_bytes(bytes);
-    println!("From: {:?}", data);
+#[derive(Debug, Eq, PartialEq)]
+struct Data {
+  name: String,
+  age: u32,
+  bool: bool,
+  vec: Vec<u32>,
+  some_random_data: Vec<HashMap<String, u32>>,
+  non_string_map: HashMap<u32, (u32, u32)>,
+}
 
-    if let Ok(data) = data {
-      assert_eq!(source, data.as_slice());
-    }
+impl Serializer for Data {
+  fn encode(&self, encoder: &mut impl Encoder) {
+    encoder.encode_string(&self.name);
+    encoder.encode_u32(self.age);
+    encoder.encode_bool(self.bool);
+    encoder.encode_slice(&self.vec);
+    encoder.encode_slice(&self.some_random_data);
+    encoder.encode_map(&self.non_string_map);
+  }
+}
+
+impl Deserializer for Data {
+  fn decode(decoder: &mut impl Decoder) -> DecoderResult<Self> {
+    Ok(Self {
+      name: decoder.decode_string()?,
+      age: decoder.decode_u32()?,
+      bool: decoder.decode_bool()?,
+      vec: decoder.decode_slice()?,
+      some_random_data: decoder.decode_slice::<HashMap<String, u32>>()?,
+      non_string_map: decoder.decode_map::<u32, (u32, u32)>()?,
+    })
   }
 }
 
 #[cfg(test)]
-mod v2_test {
-  use crate::v2::common::ByteEndian;
-  use crate::v2::decoder::FromBytes;
-  use crate::v2::encoder::ToBytes;
+#[test]
+fn test_invalid_data() {
+  fn test<const N: usize>() {
+    let bytes = [0x00; N];
 
-  #[test]
-  fn test_slice() {
-    let source = [69u32; 10];
-    println!("Source: {:?}", source);
+    let value = Data::from_bytes(&bytes, ByteEndian::Little);
 
-    let bytes = source.to_bytes();
-    let data = Vec::<u32>::from_bytes(bytes.as_slice(), ByteEndian::Little);
-    println!("From: {:?}", data);
-
-    if let Ok(data) = data {
-      assert_eq!(source, data.as_slice());
-    }
+    println!("{}: {:?}", N, value);
   }
+
+  test::<16>();
+  test::<32>();
+  test::<64>();
+  test::<96>();
+  test::<128>();
+  test::<192>();
+  test::<256>();
 }
 
+#[cfg(test)]
+#[test]
+fn run() {
+  let data = Data {
+    name: "Some Name".to_string(),
+    age: 69,
+    bool: true,
+    vec: Vec::new(),
+    some_random_data: vec![
+      HashMap::from_iter([("test".to_string(), 2)]),
+      HashMap::from_iter([("eiuhgieurohbn".to_string(), 238)]),
+      HashMap::from_iter([("".to_string(), 0)]),
+    ],
+    non_string_map: HashMap::from_iter([
+      (0, (2934, 32465346)),
+      (1, (30945, 39846)),
+      (2, (32495, 3453456)),
+      (3, (945745, 32095)),
+    ]),
+  };
+
+  let start = std::time::SystemTime::now();
+  let bytes = data.to_bytes(ByteEndian::Little);
+  let data2 = Data::from_bytes(&bytes, ByteEndian::Little).unwrap();
+  let end = start.elapsed().unwrap();
+
+  println!("Serialized Bytes {:?}", &bytes);
+  println!("Original {:?}", data);
+  println!("Deserialized {:?}", data2);
+  println!("Serialize to Deserialize took {:?}", end);
+  assert_eq!(data, data2);
+}

@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::io::Write;
 
-use crate::v1::common::MapEntry;
+use crate::common::{ByteEndian, EndianValue, MapEntry};
 
-pub trait Encoder {
+pub trait Encoder: Sized {
   fn encode_u8(&mut self, value: u8);
   fn encode_u16(&mut self, value: u16);
   fn encode_u32(&mut self, value: u32);
@@ -26,10 +26,33 @@ pub trait Encoder {
     self.encode_u8(value as u8);
   }
 
-  fn encode_string(&mut self, value: impl ToString);
-  fn encode_slice<T: Serializer>(&mut self, value: &[T]);
-  fn encode_map<K: Serializer + Eq + Hash, V: Serializer>(&mut self, value: &HashMap<K, V>);
-  fn encode_value<T: Serializer>(&mut self, value: &T);
+  fn encode_slice<T: Serializer>(&mut self, value: &[T]) {
+    self.encode_usize(value.len());
+
+    for value in value {
+      value.encode(self);
+    }
+  }
+
+  fn encode_string(&mut self, value: impl ToString) {
+    let str = value.to_string();
+    let vec = str.encode_utf16().collect::<Vec<_>>();
+
+    self.encode_slice(&vec);
+  }
+
+  fn encode_map<K: Serializer + Eq + Hash, V: Serializer>(&mut self, value: &HashMap<K, V>) {
+    let values = value
+      .iter()
+      .map(|it| MapEntry(it.0, it.1))
+      .collect::<Vec<_>>();
+
+    self.encode_slice(&values);
+  }
+
+  fn encode_value<T: Serializer>(&mut self, value: &T) {
+    value.encode(self);
+  }
 }
 
 pub struct ByteTracker {
@@ -50,68 +73,46 @@ impl ByteTracker {
 
 pub struct ByteEncoder {
   bytes: Vec<u8>,
+  endian: ByteEndian,
 }
 
 impl ByteEncoder {
-  pub fn new() -> Self {
+  pub fn new(endian: ByteEndian) -> Self {
     Self {
       bytes: vec![],
+      endian,
     }
   }
 
   pub fn bytes(&self) -> &Vec<u8> {
     &self.bytes
   }
+
+  fn write<T: EndianValue>(&mut self, value: T) where [u8; T::SIZE]: {
+    self.bytes.write(&value.to_bytes_of(self.endian)).unwrap();
+  }
 }
 
 impl Encoder for ByteEncoder {
-  fn encode_u8(&mut self, value: u8) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_u16(&mut self, value: u16) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_u32(&mut self, value: u32) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_u64(&mut self, value: u64) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_u128(&mut self, value: u128) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
+  fn encode_u8(&mut self, value: u8) { self.write(value); }
+  fn encode_u16(&mut self, value: u16) { self.write(value); }
+  fn encode_u32(&mut self, value: u32) { self.write(value); }
+  fn encode_u64(&mut self, value: u64) { self.write(value); }
+  fn encode_u128(&mut self, value: u128) { self.write(value) }
 
-  fn encode_i8(&mut self, value: i8) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_i16(&mut self, value: i16) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_i32(&mut self, value: i32) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_i64(&mut self, value: i64) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_i128(&mut self, value: i128) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
+  fn encode_i8(&mut self, value: i8) { self.write(value); }
+  fn encode_i16(&mut self, value: i16) { self.write(value); }
+  fn encode_i32(&mut self, value: i32) { self.write(value); }
+  fn encode_i64(&mut self, value: i64) { self.write(value); }
+  fn encode_i128(&mut self, value: i128) { self.write(value) }
 
-  fn encode_f32(&mut self, value: f32) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-  fn encode_f64(&mut self, value: f64) { self.bytes.write(&value.to_be_bytes()).unwrap(); }
-
-  fn encode_string(&mut self, value: impl ToString) {
-    let str = value.to_string();
-    let vec = str.encode_utf16().collect::<Vec<_>>();
-
-    self.encode_slice(&vec);
-  }
-
-  fn encode_slice<T: Serializer>(&mut self, value: &[T]) {
-    self.encode_usize(value.len());
-
-    for value in value {
-      value.encode(self);
-    }
-  }
-
-  fn encode_map<K: Serializer + Eq + Hash, V: Serializer>(&mut self, value: &HashMap<K, V>) {
-    let values = value
-      .iter()
-      .map(|it| MapEntry(it.0, it.1))
-      .collect::<Vec<_>>();
-
-    self.encode_slice(&values);
-  }
-
-  fn encode_value<T: Serializer>(&mut self, value: &T) {
-    value.encode(self);
-  }
+  fn encode_f32(&mut self, value: f32) { self.write(value); }
+  fn encode_f64(&mut self, value: f64) { self.write(value); }
 }
 
 pub trait ToBytes: Serializer {
-  fn to_bytes(&self) -> Vec<u8> {
-    let mut encoder = ByteEncoder::new();
+  fn to_bytes(&self, endian: ByteEndian) -> Vec<u8> {
+    let mut encoder = ByteEncoder::new(endian);
     self.encode(&mut encoder);
 
     encoder.bytes

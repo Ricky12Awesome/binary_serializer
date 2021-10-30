@@ -1,30 +1,14 @@
 use criterion::{BenchmarkId, black_box, Criterion, criterion_group, criterion_main};
+use binary_serializer::common::ByteEndian;
+use binary_serializer::decoder::FromBytes;
+use binary_serializer::encoder::ToBytes;
 
 fn criterion_benchmark(c: &mut Criterion) {
-  // {
-  //   use binary_serializer::v1::encoder::ToBytes;
-  //   use binary_serializer::v1::decoder::FromBytes;
-  //
-  //   let bytes = [0u64; 16384].to_bytes();
-  //
-  //   c.bench_with_input(BenchmarkId::new("from_bytes-v1", bytes.len()), &bytes, |b, bytes| b.iter(|| {
-  //     let bytes = bytes.clone();
-  //
-  //     black_box(Vec::<u64>::from_bytes(bytes).unwrap());
-  //   }));
-  // }
+  let bytes = vec![0u64; 16384].as_slice().to_bytes(ByteEndian::Little);
 
-  {
-    use binary_serializer::v2::encoder::ToBytes;
-    use binary_serializer::v2::decoder::FromBytes;
-    use binary_serializer::v2::common::ByteEndian;
-
-    let bytes = vec![0u64; 32_000_000].as_slice().to_bytes();
-
-    c.bench_with_input(BenchmarkId::new("from_bytes-v2", bytes.len()), &bytes, |b, bytes| b.iter(|| {
-      black_box(Vec::<u64>::from_bytes(bytes, ByteEndian::Little).unwrap());
-    }));
-  }
+  c.bench_with_input(BenchmarkId::new("from_bytes-v2", bytes.len()), &bytes, |b, bytes| b.iter(|| {
+    black_box(Vec::<u64>::from_bytes(bytes, ByteEndian::Little).unwrap());
+  }));
 }
 
 criterion_group!(benches, criterion_benchmark);
