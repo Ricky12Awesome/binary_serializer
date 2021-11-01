@@ -13,6 +13,7 @@ pub type DecoderResult<T> = std::result::Result<T, DecoderError>;
 
 #[derive(Debug)]
 pub enum DecoderError {
+  Custom(String),
   NotEnoughBytes {
     type_name: String,
     index: usize,
@@ -21,6 +22,10 @@ pub enum DecoderError {
 }
 
 impl DecoderError {
+  pub fn custom(msg: impl ToString) -> Self {
+    Self::Custom(msg.to_string())
+  }
+
   pub fn not_enough_bytes(type_name: impl ToString, index: usize) -> Self {
     Self::NotEnoughBytes {
       type_name: type_name.to_string(),
@@ -32,6 +37,9 @@ impl DecoderError {
 impl Display for DecoderError {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
+      DecoderError::Custom(msg) => {
+        f.write_str(msg)
+      },
       DecoderError::NotEnoughBytes { type_name, index } => {
         f.write_str(&format!("not enough bytes left to decode `{}` starting at index `{}`", type_name, index))
       }
