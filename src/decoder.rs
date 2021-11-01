@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
-use std::mem::size_of;
 
 use crate::common::{ByteEndian, EndianValue, MapEntry};
 
@@ -108,14 +107,14 @@ impl<'a> ByteDecoder<'a> {
 
   pub fn bytes(&self) -> &[u8] { &self.bytes }
 
-  fn read_bytes<T: EndianValue>(&mut self) -> DecoderResult<T> where [u8; T::SIZE]: {
-    let value: [u8; T::SIZE] = self
+  fn read_bytes<T: EndianValue<SIZE>, const SIZE: usize>(&mut self) -> DecoderResult<T> {
+    let value: [u8; SIZE] = self
       .bytes
-      .get(self.index..self.index + T::SIZE)
+      .get(self.index..self.index + SIZE)
       .and_then(|bytes| bytes.try_into().ok())
       .ok_or_else(|| DecoderError::not_enough_bytes(type_name::<T>(), self.index))?;
 
-    self.index += T::SIZE;
+    self.index += SIZE;
 
     Ok(T::from_bytes_of(self.endian, value))
   }

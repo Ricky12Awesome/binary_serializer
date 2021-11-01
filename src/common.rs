@@ -1,5 +1,4 @@
 use std::hash::Hash;
-use std::mem::size_of;
 
 use crate::decoder::{Decoder, DecoderResult, Deserializer};
 use crate::encoder::{Encoder, Serializer};
@@ -11,6 +10,11 @@ pub enum ByteEndian {
 }
 
 impl ByteEndian {
+  #[cfg(target_endian = "little")]
+  const NATIVE: Self = ByteEndian::Little;
+  #[cfg(target_endian = "big")]
+  const NATIVE: Self = ByteEndian::Big;
+
   pub const fn is_native(&self) -> bool {
     match self {
       ByteEndian::Big => cfg!(target_endian = "big"),
@@ -19,46 +23,44 @@ impl ByteEndian {
   }
 }
 
-pub trait EndianValue: Sized {
-  const SIZE: usize = size_of::<Self>();
+pub trait EndianValue<const SIZE: usize>: Sized {
+  fn from_bytes_le(bytes: [u8; SIZE]) -> Self;
+  fn from_bytes_be(bytes: [u8; SIZE]) -> Self;
 
-  fn from_bytes_le(bytes: [u8; Self::SIZE]) -> Self;
-  fn from_bytes_be(bytes: [u8; Self::SIZE]) -> Self;
+  fn to_bytes_le(self) -> [u8; SIZE];
+  fn to_bytes_be(self) -> [u8; SIZE];
 
-  fn to_bytes_le(self) -> [u8; Self::SIZE];
-  fn to_bytes_be(self) -> [u8; Self::SIZE];
-
-  fn from_bytes_of(endian: ByteEndian, bytes: [u8; Self::SIZE]) -> Self {
+  fn from_bytes_of(endian: ByteEndian, bytes: [u8; SIZE]) -> Self {
     match endian {
       ByteEndian::Big => Self::from_bytes_be(bytes),
       ByteEndian::Little => Self::from_bytes_le(bytes)
     }
   }
 
-  fn to_bytes_of(self, endian: ByteEndian) -> [u8; Self::SIZE] {
+  fn to_bytes_of(self, endian: ByteEndian) -> [u8; SIZE] {
     match endian {
-      ByteEndian::Big =>  self.to_bytes_be(),
+      ByteEndian::Big => self.to_bytes_be(),
       ByteEndian::Little => self.to_bytes_le(),
     }
   }
 }
 
 macro_rules! impl_from_endian {
-  ($($type:ty),+ $(,)?) => {
-    $(impl EndianValue for $type {
-      fn from_bytes_le(bytes: [u8; Self::SIZE]) -> Self {
+  ($(($type:ty, $size:literal)),+ $(,)?) => {
+    $(impl EndianValue<$size> for $type {
+      fn from_bytes_le(bytes: [u8; $size]) -> Self {
         Self::from_le_bytes(bytes)
       }
 
-      fn from_bytes_be(bytes: [u8; Self::SIZE]) -> Self {
+      fn from_bytes_be(bytes: [u8; $size]) -> Self {
         Self::from_be_bytes(bytes)
       }
 
-      fn to_bytes_le(self) -> [u8; Self::SIZE] {
+      fn to_bytes_le(self) -> [u8; $size] {
         self.to_le_bytes()
       }
 
-      fn to_bytes_be(self) -> [u8; Self::SIZE] {
+      fn to_bytes_be(self) -> [u8; $size] {
         self.to_be_bytes()
       }
     })+
@@ -66,50 +68,10 @@ macro_rules! impl_from_endian {
 }
 
 impl_from_endian!(
-  u8, u16, u32, u64, u128,
-  i8, i16, i32, i64, i128,
-  f32, f64
+  (u8, 1), (u16, 2), (u32, 4), (u64, 8), (u128, 16), (usize, 8),
+  (i8, 1), (i16, 2), (i32, 4), (i64, 8), (i128, 16), (isize, 8),
+  (f32, 4), (f64, 8)
 );
-
-impl EndianValue for usize {
-  const SIZE: usize = size_of::<u64>();
-
-  fn from_bytes_le(bytes: [u8; Self::SIZE]) -> Self {
-    u64::from_le_bytes(bytes) as usize
-  }
-
-  fn from_bytes_be(bytes: [u8; Self::SIZE]) -> Self {
-    u64::from_be_bytes(bytes) as usize
-  }
-
-  fn to_bytes_le(self) -> [u8; Self::SIZE] {
-    (self as u64).to_le_bytes()
-  }
-
-  fn to_bytes_be(self) -> [u8; Self::SIZE] {
-    (self as u64).to_be_bytes()
-  }
-}
-
-impl EndianValue for isize {
-  const SIZE: usize = size_of::<i64>();
-
-  fn from_bytes_le(bytes: [u8; Self::SIZE]) -> Self {
-    i64::from_le_bytes(bytes) as isize
-  }
-
-  fn from_bytes_be(bytes: [u8; Self::SIZE]) -> Self {
-    i64::from_be_bytes(bytes) as isize
-  }
-
-  fn to_bytes_le(self) -> [u8; Self::SIZE] {
-    (self as i64).to_le_bytes()
-  }
-
-  fn to_bytes_be(self) -> [u8; Self::SIZE] {
-    (self as i64).to_be_bytes()
-  }
-}
 
 pub struct MapEntry<K: Eq + Hash, V>(pub K, pub V);
 

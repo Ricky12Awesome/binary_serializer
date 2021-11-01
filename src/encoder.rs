@@ -88,7 +88,7 @@ impl ByteEncoder {
     &self.bytes
   }
 
-  fn write<T: EndianValue>(&mut self, value: T) where [u8; T::SIZE]: {
+  fn write<T: EndianValue<SIZE>, const SIZE: usize>(&mut self, value: T) {
     self.bytes.write(&value.to_bytes_of(self.endian)).unwrap();
   }
 }
