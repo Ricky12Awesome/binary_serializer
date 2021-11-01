@@ -37,6 +37,7 @@
       <sourceFolder url="file://$MODULE_DIR$/target/debug/build/syn-573eee3dc7f7879f/out" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/binary_serializer/benches" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/binary_serializer/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/binary_serializer/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/binary_serializer_derive/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/binary_serializer_derive/target/debug/build/proc-macro2-62a8b13641cf4194/out" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/binary_serializer_derive/target/debug/build/syn-b739d77054ce0e6f/out" isTestSource="false" />
