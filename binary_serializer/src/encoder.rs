@@ -155,6 +155,12 @@ impl<T: Serializer, const N: usize> Serializer for [T; N] {
   }
 }
 
+impl<T: Serializer> Serializer for Vec<T> {
+  fn encode(&self, encoder: &mut impl Encoder) {
+    encoder.encode_slice(self);
+  }
+}
+
 impl<K: Serializer + Eq + Hash, V: Serializer> Serializer for HashMap<K, V> {
   fn encode(&self, encoder: &mut impl Encoder) {
     encoder.encode_map(self);

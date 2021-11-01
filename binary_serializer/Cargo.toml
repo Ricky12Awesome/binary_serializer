@@ -1,0 +1,19 @@
+[package]
+name = "binary_serializer"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+criterion = "0.3.5"
+binary_serializer_derive = { path = "../binary_serializer_derive", optional = true }
+
+[[bench]]
+name = "benchmark"
+harness = false
+
+[features]
+default = ["prelude", "derive"]
+prelude = []
+derive = ["binary_serializer_derive"]
