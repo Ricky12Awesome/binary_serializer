@@ -5,18 +5,16 @@ use syn::{parse_macro_input, Ident, Path, Index, DeriveInput, FieldsNamed, Field
 mod serialize {
   use crate::*;
 
-  pub struct Paths {
-    serializer: Path,
-    encoder: Path,
-  }
-
-  impl Paths {
-    pub fn new() -> Self {
-      Self {
-        serializer: syn::parse_str("binary_serializer::encoder::Serializer").unwrap(),
-        encoder: syn::parse_str("binary_serializer::encoder::Encoder").unwrap(),
+  macro_rules! quote_serializer {
+    ($id:ident: $($tt:tt)*) => {
+      quote! {
+        impl ::binary_serializer::encoder::Serializer for #$id {
+          fn encode(&self, encoder: &mut impl ::binary_serializer::encoder::Encoder) {
+            $($tt)*
+          }
+        }
       }
-    }
+    };
   }
 
   pub(crate) fn struct_named(ident: Ident, fields: FieldsNamed) -> proc_macro2::TokenStream {
@@ -24,14 +22,8 @@ mod serialize {
       .map(|f| &f.ident)
       .map(|name| quote! { encoder.encode_value(&self.#name) });
 
-    let Paths { serializer, encoder } = Paths::new();
-
-    quote! {
-      impl #serializer for #ident {
-        fn encode(&self, encoder: &mut impl #encoder) {
-          #(#fields);*
-        }
-      }
+    quote_serializer! {
+      ident: #(#fields);*
     }
   }
 
@@ -41,25 +33,14 @@ mod serialize {
       .map(|(idx, _)| Index::from(idx))
       .map(|idx| quote! { encoder.encode_value(&self.#idx) });
 
-    let Paths { serializer, encoder } = Paths::new();
-
-    quote! {
-      impl #serializer for #ident {
-        fn encode(&self, encoder: &mut impl #encoder) {
-          #(#fields);*
-        }
-      }
+    quote_serializer! {
+      ident: #(#fields);*
     }
   }
 
   pub(crate) fn struct_unit(ident: Ident) -> proc_macro2::TokenStream {
-    let Paths { serializer, encoder } = Paths::new();
-
-    quote! {
-      impl #serializer for #ident {
-        fn encode(&self, encoder: &mut impl #encoder) {
-        }
-      }
+    quote_serializer! {
+      ident:
     }
   }
 }
@@ -67,20 +48,16 @@ mod serialize {
 mod deserialize {
   use crate::*;
 
-  pub struct Paths {
-    deserializer: Path,
-    decoder: Path,
-    result: Path,
-  }
-
-  impl Paths {
-    pub fn new() -> Self {
-      Self {
-        deserializer: syn::parse_str("binary_serializer::decoder::Deserializer").unwrap(),
-        decoder: syn::parse_str("binary_serializer::decoder::Decoder").unwrap(),
-        result: syn::parse_str("binary_serializer::decoder::DecoderResult<Self>").unwrap(),
+  macro_rules! quote_deserializer {
+    ($id:ident: $($tt:tt)*) => {
+      quote! {
+        impl ::binary_serializer::decoder::Deserializer for #$id {
+          fn decode(decoder: &mut impl ::binary_serializer::decoder::Decoder) -> ::binary_serializer::decoder::DecoderResult<Self> {
+            Ok($($tt)*)
+          }
+        }
       }
-    }
+    };
   }
 
   pub(crate) fn struct_named(ident: Ident, fields: FieldsNamed) -> proc_macro2::TokenStream {
@@ -88,15 +65,9 @@ mod deserialize {
       .map(|f| &f.ident)
       .map(|name| quote! { #name: decoder.decode_value()? });
 
-    let Paths { deserializer, decoder, result } = Paths::new();
-
-    quote! {
-      impl #deserializer for #ident {
-        fn decode(decoder: &mut impl #decoder) -> #result {
-          Ok(Self {
-            #(#fields),*
-          })
-        }
+    quote_deserializer! {
+      ident: Self {
+        #(#fields),*
       }
     }
   }
@@ -105,26 +76,14 @@ mod deserialize {
     let fields = fields.unnamed.iter()
       .map(|_| quote! { decoder.decode_value()? });
 
-    let Paths { deserializer, decoder, result } = Paths::new();
-
-    quote! {
-      impl #deserializer for #ident {
-        fn decode(decoder: &mut impl #decoder) -> #result {
-          Ok(Self(#(#fields),*))
-        }
-      }
+    quote_deserializer! {
+      ident: Self(#(#fields),*)
     }
   }
 
   pub(crate) fn struct_unit(ident: Ident) -> proc_macro2::TokenStream {
-    let Paths { deserializer, decoder, result } = Paths::new();
-
-    quote! {
-      impl #deserializer for #ident {
-        fn decode(decoder: &mut impl #decoder) -> #result {
-          Ok(Self)
-        }
-      }
+    quote_deserializer! {
+      ident: Self
     }
   }
 }
