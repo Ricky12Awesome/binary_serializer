@@ -2,6 +2,9 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::io::Write;
 
+#[cfg(feature = "binary_serializer_derive")]
+pub use binary_serializer_derive::Serializer;
+
 use crate::common::{ByteEndian, EndianValue, MapEntry};
 
 pub trait Encoder: Sized {

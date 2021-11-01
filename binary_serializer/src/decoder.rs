@@ -4,6 +4,9 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 
+#[cfg(feature = "binary_serializer_derive")]
+pub use binary_serializer_derive::Deserializer;
+
 use crate::common::{ByteEndian, EndianValue, MapEntry};
 
 pub type DecoderResult<T> = std::result::Result<T, DecoderError>;

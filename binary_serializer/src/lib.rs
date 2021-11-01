@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::common::*;
 use crate::decoder::*;
 use crate::encoder::*;
@@ -15,10 +13,7 @@ pub mod prelude {
   pub use crate::encoder::*;
 }
 
-pub use binary_serializer_derive::Serializable;
-pub use binary_serializer_derive::Deserializable;
-
-#[derive(Debug, Eq, PartialEq, Serializable, Deserializable)]
+#[derive(Debug, Eq, PartialEq, Serializer, Deserializer)]
 struct Data {
   text: String,
   number: u32,

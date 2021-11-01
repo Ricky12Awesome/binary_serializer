@@ -1,6 +1,6 @@
 use proc_macro::{self, TokenStream};
 use quote::quote;
-use syn::{parse_macro_input, Ident, DataEnum, DataUnion, DeriveInput, FieldsNamed, FieldsUnnamed, Field};
+use syn::{parse_macro_input, Ident, DataUnion, DeriveInput, FieldsNamed, Field};
 
 mod serialize {
   use crate::*;
@@ -45,7 +45,7 @@ fn unimpl() -> proc_macro2::TokenStream {
   quote! {}
 }
 
-#[proc_macro_derive(Serializable)]
+#[proc_macro_derive(Serializer)]
 pub fn serialize(input: TokenStream) -> TokenStream {
   let DeriveInput { ident, data, .. } = parse_macro_input!(input);
 
@@ -69,7 +69,7 @@ pub fn serialize(input: TokenStream) -> TokenStream {
   output.into()
 }
 
-#[proc_macro_derive(Deserializable)]
+#[proc_macro_derive(Deserializer)]
 pub fn deserialize(input: TokenStream) -> TokenStream {
   let DeriveInput { ident, data, .. } = parse_macro_input!(input);
 
