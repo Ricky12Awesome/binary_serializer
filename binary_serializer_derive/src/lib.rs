@@ -51,7 +51,7 @@ mod serialize {
         let name = &v.ident;
         let index = Index::from(idx);
         let stmt = match &v.fields {
-          Fields::Named(fields) => quote! { Self::#name { .. } => #index },
+          Fields::Named(_fields) => quote! { Self::#name { .. } => #index },
           Fields::Unnamed(fields) => {
             let fields = fields.unnamed.iter().map(|_| format_ident!("_"));
 
@@ -138,9 +138,9 @@ mod deserialize {
       .map(|name| quote! { #name: decoder.decode_value()? });
 
     quote_deserializer! {
-      ident: Self {
-        Ok(#(#fields),*)
-      }
+      ident: Ok(Self {
+        #(#fields),*
+      })
     }
   }
 

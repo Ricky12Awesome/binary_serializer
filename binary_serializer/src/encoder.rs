@@ -29,33 +29,10 @@ pub trait Encoder: Sized {
     self.encode_u8(value as u8);
   }
 
-  fn encode_slice<T: Serializer>(&mut self, value: &[T]) {
-    self.encode_usize(value.len());
-
-    for value in value {
-      value.encode(self);
-    }
-  }
-
-  fn encode_string(&mut self, value: impl ToString) {
-    let str = value.to_string();
-    let vec = str.encode_utf16().collect::<Vec<_>>();
-
-    self.encode_slice(&vec);
-  }
-
-  fn encode_map<K: Serializer + Eq + Hash, V: Serializer>(&mut self, value: &HashMap<K, V>) {
-    let values = value
-      .iter()
-      .map(|it| MapEntry(it.0, it.1))
-      .collect::<Vec<_>>();
-
-    self.encode_slice(&values);
-  }
-
-  fn encode_value<T: Serializer>(&mut self, value: &T) {
-    value.encode(self);
-  }
+  fn encode_slice<T: Serializer>(&mut self, value: &[T]);
+  fn encode_string(&mut self, value: impl ToString);
+  fn encode_map<K: Serializer + Eq + Hash, V: Serializer>(&mut self, value: &HashMap<K, V>);
+  fn encode_value<T: Serializer>(&mut self, value: &T);
 }
 
 pub struct ByteTracker {
@@ -111,6 +88,34 @@ impl Encoder for ByteEncoder {
 
   fn encode_f32(&mut self, value: f32) { self.write(value); }
   fn encode_f64(&mut self, value: f64) { self.write(value); }
+
+  fn encode_slice<T: Serializer>(&mut self, value: &[T]) {
+    self.encode_usize(value.len());
+
+    for value in value {
+      value.encode(self);
+    }
+  }
+
+  fn encode_string(&mut self, value: impl ToString) {
+    let str = value.to_string();
+    let vec = str.encode_utf16().collect::<Vec<_>>();
+
+    self.encode_slice(&vec);
+  }
+
+  fn encode_map<K: Serializer + Eq + Hash, V: Serializer>(&mut self, value: &HashMap<K, V>) {
+    let values = value
+      .iter()
+      .map(|it| MapEntry(it.0, it.1))
+      .collect::<Vec<_>>();
+
+    self.encode_slice(&values);
+  }
+
+  fn encode_value<T: Serializer>(&mut self, value: &T) {
+    value.encode(self);
+  }
 }
 
 pub trait ToBytes: Serializer {

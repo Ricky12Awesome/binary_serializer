@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
+use std::panic::catch_unwind;
 
 #[cfg(feature = "binary_serializer_derive")]
 pub use binary_serializer_derive::Deserializer;
@@ -11,19 +12,33 @@ use crate::common::{ByteEndian, EndianValue, MapEntry};
 
 pub type DecoderResult<T> = std::result::Result<T, DecoderError>;
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum DecoderError {
   Custom(String),
+  NotEnoughMemorySlice {
+    len: usize,
+    index: usize,
+  },
   NotEnoughBytes {
     type_name: String,
     index: usize,
   },
-  InvalidUTF16(std::string::FromUtf16Error),
+  InvalidUTF16 {
+    index: usize
+  },
 }
 
 impl DecoderError {
   pub fn custom(msg: impl ToString) -> Self {
     Self::Custom(msg.to_string())
+  }
+
+  pub fn not_enough_memory_for_slice(len: usize, index: usize) -> Self {
+    Self::NotEnoughMemorySlice { len, index }
+  }
+
+  pub fn invalid_utf16(index: usize) -> Self {
+    Self::InvalidUTF16 { index }
   }
 
   pub fn not_enough_bytes(type_name: impl ToString, index: usize) -> Self {
@@ -39,12 +54,15 @@ impl Display for DecoderError {
     match self {
       DecoderError::Custom(msg) => {
         f.write_str(msg)
-      },
-      DecoderError::NotEnoughBytes { type_name, index } => {
-        f.write_str(&format!("not enough bytes left to decode `{}` starting at index `{}`", type_name, index))
       }
-      DecoderError::InvalidUTF16(err) => {
-        Display::fmt(err, f)
+      DecoderError::NotEnoughBytes { type_name, index } => {
+        write!(f, "not enough bytes left to decode `{}` starting at index `{}`", type_name, index)
+      }
+      DecoderError::InvalidUTF16 { index } => {
+        write!(f, "string was encoded with invalid UTF16 starting at index `{}`", index)
+      }
+      DecoderError::NotEnoughMemorySlice { len: size, index } => {
+        write!(f, "not enough memory to allocate slice with length of `{}` starting at index `{}`", size, index)
       }
     }
   }
@@ -72,37 +90,10 @@ pub trait Decoder: Sized {
 
   fn decode_bool(&mut self) -> DecoderResult<bool> { self.decode_u8().map(|it| it != 0) }
 
-  fn decode_slice<T: Deserializer>(&mut self) -> DecoderResult<Vec<T>> {
-    let len = self.decode_usize()?;
-    let mut vec = Vec::with_capacity(len);
-
-    for _ in 0..len {
-      vec.push(T::decode(self)?);
-    }
-
-    Ok(vec)
-  }
-
-  fn decode_string(&mut self) -> DecoderResult<String> {
-    let data = self.decode_slice::<u16>()?;
-
-    String::from_utf16(&data).map_err(DecoderError::InvalidUTF16)
-  }
-
-  fn decode_map<K: Deserializer + Eq + Hash, V: Deserializer>(&mut self) -> DecoderResult<HashMap<K, V>> {
-    let entries = self.decode_slice::<MapEntry<K, V>>()?;
-    let mut map = HashMap::with_capacity(entries.len());
-
-    for entry in entries {
-      map.insert(entry.0, entry.1);
-    }
-
-    Ok(map)
-  }
-
-  fn decode_value<T: Deserializer>(&mut self) -> DecoderResult<T> {
-    T::decode(self)
-  }
+  fn decode_slice<T: Deserializer>(&mut self) -> DecoderResult<Vec<T>>;
+  fn decode_string(&mut self) -> DecoderResult<String>;
+  fn decode_map<K: Deserializer + Eq + Hash, V: Deserializer>(&mut self) -> DecoderResult<HashMap<K, V>>;
+  fn decode_value<T: Deserializer>(&mut self) -> DecoderResult<T>;
 }
 
 pub struct ByteDecoder<'a> {
@@ -137,13 +128,50 @@ impl<'a> Decoder for ByteDecoder<'a> {
   fn decode_u32(&mut self) -> DecoderResult<u32> { self.read_bytes() }
   fn decode_u64(&mut self) -> DecoderResult<u64> { self.read_bytes() }
   fn decode_u128(&mut self) -> DecoderResult<u128> { self.read_bytes() }
+
   fn decode_i8(&mut self) -> DecoderResult<i8> { self.read_bytes() }
   fn decode_i16(&mut self) -> DecoderResult<i16> { self.read_bytes() }
   fn decode_i32(&mut self) -> DecoderResult<i32> { self.read_bytes() }
   fn decode_i64(&mut self) -> DecoderResult<i64> { self.read_bytes() }
   fn decode_i128(&mut self) -> DecoderResult<i128> { self.read_bytes() }
+
   fn decode_f32(&mut self) -> DecoderResult<f32> { self.read_bytes() }
   fn decode_f64(&mut self) -> DecoderResult<f64> { self.read_bytes() }
+
+  fn decode_slice<T: Deserializer>(&mut self) -> DecoderResult<Vec<T>> {
+    let len = self.decode_usize()?;
+    let mut vec = Vec::new();
+
+    vec.try_reserve_exact(len)
+      .map_err(|_| DecoderError::not_enough_memory_for_slice(len, self.index))?;
+
+    for _ in 0..len {
+      vec.push(T::decode(self)?);
+    }
+
+    Ok(vec)
+  }
+
+  fn decode_string(&mut self) -> DecoderResult<String> {
+    let data = self.decode_slice::<u16>()?;
+
+    String::from_utf16(&data).map_err(|_| DecoderError::invalid_utf16(self.index))
+  }
+
+  fn decode_map<K: Deserializer + Eq + Hash, V: Deserializer>(&mut self) -> DecoderResult<HashMap<K, V>> {
+    let entries = self.decode_slice::<MapEntry<K, V>>()?;
+    let mut map = HashMap::with_capacity(entries.len());
+
+    for entry in entries {
+      map.insert(entry.0, entry.1);
+    }
+
+    Ok(map)
+  }
+
+  fn decode_value<T: Deserializer>(&mut self) -> DecoderResult<T> {
+    T::decode(self)
+  }
 }
 
 pub trait FromBytes: Deserializer + Sized {
